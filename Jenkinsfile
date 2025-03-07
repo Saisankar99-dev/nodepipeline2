@@ -14,7 +14,7 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        checkout scm // Clone the Git repository
+         git branch: 'main', url: 'https://github.com/Saisankar99-dev/nodepipeline2'
       }
     }
 
