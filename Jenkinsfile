@@ -1,20 +1,15 @@
 pipeline {
-  agent {
-    docker {
-      image 'node:16-alpine' // Use Node.js image for the pipeline
-      args '-u root' // Run as root to avoid permission issues
-    }
-  }
+  agent any // Run on the host machine
 
   environment {
-    // Docker Hub Credentials (stored in Jenkins credentials)
-    DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
+    
+    DOCKER_HUB_CREDENTIALS = 'docker-hub-credentials'
   }
 
   stages {
     stage('Checkout') {
       steps {
-         git branch: 'main', url: 'https://github.com/Saisankar99-dev/nodepipeline2'
+       git branch: 'main', url: 'https://github.com/Saisankar99-dev/nodepipeline2'
       }
     }
 
@@ -33,21 +28,21 @@ pipeline {
       steps {
         script {
           // Build the Docker image
-          docker.build("${DOCKER_HUB_REPO}:latest", "./backend")
+          sh "docker build -t ${DOCKER_HUB_REPO}:latest ./backend"
         }
       }
     }
 
-    stage('Push Backend Image') {
-      steps {
-        script {
-          // Push the Docker image to Docker Hub
-          docker.withRegistry('https://registry.hub.docker.com', DOCKER_HUB_CREDENTIALS) {
-            docker.image("${DOCKER_HUB_REPO}:latest").push()
-          }
+    stage('Push Docker Image to Docker Hub') {
+            steps {
+                script {
+                    // Pass the credential ID directly
+                    docker.withRegistry('https://registry.hub.docker.com', DOCKER_HUB_CREDENTIALS) {
+                        docker.image("${DOCKER_HUB_REPO}:latest").push()
+                    }
+                }
+            }
         }
-      }
-    }
 
     stage('Deploy Backend') {
       steps {
@@ -57,25 +52,25 @@ pipeline {
           sh 'docker rm backend-container || true'
 
           // Start a new container with the PORT from .env
-          sh "docker run -d --name backend-container -p ${PORT}:${PORT} ${DOCKER_HUB_REPO}:latest"
+          sh "docker run -d --name backend-container -p 3001:3001 ${DOCKER_HUB_REPO}:latest"
         }
       }
     }
 
     stage('Update Frontend') {
-      steps {
-        script {
-          // Copy frontend files to Nginx HTML directory
-          sh "cp -r frontend/public/* ${NGINX_HTML_DIR}/"
+  steps {
+    script {
+      // Copy frontend files to Nginx HTML directory
+      sh "sudo cp -r frontend/public/* ${NGINX_HTML_DIR}/"
 
-          // Copy Nginx configuration
-          sh "cp nginx.conf ${NGINX_CONF_DIR}/nginx.conf"
+      // Copy Nginx configuration
+      sh "sudo cp nginx.conf ${NGINX_CONF_DIR}/nginx.conf"
 
-          // Restart Nginx
-          sh "nginx -s reload"
-        }
-      }
+      // Restart Nginx
+      sh "sudo nginx -s reload"
     }
+  }
+}
   }
 
   post {
